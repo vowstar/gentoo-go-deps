@@ -132,6 +132,7 @@ jobs:
           cd "input/${WORKDIR}"
           mkdir output_user_root
           bazel --output_user_root=./output_user_root sync
+          bazel --output_user_root=./output_user_root fetch --all
           tar --create --auto-compress --file /tmp/${P}-output_user_root.tar.xz output_user_root
           rm -rf output_user_root
 
