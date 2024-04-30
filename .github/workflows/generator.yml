@@ -9,11 +9,12 @@ on:
 
       LANG:
         type: choice
-        description: "generate golang(go-mod/vendor) or javascript(node_modules) deps"
+        description: "generate golang(go-mod/vendor), javascript(node_modules) or bazel deps"
         options:
         - golang
         - javascript
         - javascript(pnpm)
+        - bazel
 
       REPO:
         description: "github repo name: MetaCubeX/Clash.Meta"
@@ -108,6 +109,32 @@ jobs:
           tar --create --auto-compress --file /tmp/${P}-node_modules-pnpm.tar.xz node_modules
           rm -rf node_modules
 
+      - name: Setup Bazel
+        if: inputs.LANG == 'bazel'
+        uses: bazel-contrib/setup-bazel@0.8.1
+        env:
+          USE_BAZEL_VERSION: 7.1.1
+        with:
+          # Avoid downloading Bazel every time.
+          bazelisk-cache: true
+          # Store build cache per workflow.
+          disk-cache: ${{ github.workflow }}
+          # Share repository cache between workflows.
+          repository-cache: true
+
+      - name: Generate bazel output_user_root
+        if: inputs.LANG == 'bazel'
+        env:
+          P: ${{ inputs.P }}
+          WORKDIR: ${{ inputs.WORKDIR }}
+        run: |
+          git tag ${P} -m "${P}-output_user_root.tar.xz"
+          cd "input/${WORKDIR}"
+          mkdir output_user_root
+          bazel --output_user_root=./output_user_root sync
+          tar --create --auto-compress --file /tmp/${P}-output_user_root.tar.xz output_user_root
+          rm -rf output_user_root
+
       - name: push tag
         uses: ad-m/github-push-action@master
         with:
@@ -138,4 +165,12 @@ jobs:
         with:
           files: |
             /tmp/${{ inputs.P }}-node_modules-pnpm.tar.xz
+          tag_name: ${{ inputs.P }}
+
+      - name: upload bazel deps to release artifaces
+        if: inputs.LANG == 'bazel'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            /tmp/${{ inputs.P }}-output_user_root.tar.xz
           tag_name: ${{ inputs.P }}
